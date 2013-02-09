@@ -40,7 +40,7 @@ class Benchmark(object):
         """Store the list of reuse-distance frequencies for an interval for a
         thread.
         """
-        self.__thread_data[str(thread)].rd_profiles[interval] = rd_profile
+        self.__thread_data[thread].rd_profiles[interval] = rd_profile
     
     def plot_rd_profiles(self, new_style=False):
         """Plot reuse-distance profile for all intervals for all threads.
@@ -60,7 +60,7 @@ class Benchmark(object):
             for num_interval in data.rd_profiles:
                 bins_list = list()
                 freq_list = list()
-                for dist, freq in data.rd_profiles[num_intervals].iteritems():
+                for dist, freq in data.rd_profiles[num_interval].iteritems():
                     bins_list.append(dist)
                     freq_list.append(freq)
                 bins = np.array(bins_list)
@@ -68,10 +68,10 @@ class Benchmark(object):
                 #label = "label=" + "Thread " + str(self.__thread_data.index(data))
                 plot_data = [bins, rd_freq]
                 #labels.append('Thread ' + str(self.__thread_data.index(data)))
-                labels = ['Interval: ' + num_interval]
+                labels = ['Interval: ' + str(num_interval)]
                 sp = figure.add_plot(new_style, labels, *plot_data)    
                 figure.set_plot_param(sp, "reuse distance", "frequency",
-                                      "Interval: " + num_interval)
+                                      "Interval: " + str(num_interval))
 
             figure.save()
             figure.close()
@@ -102,9 +102,9 @@ class Benchmark(object):
                         token.rstrip(',')
                         distance = token.split(':')[0]
                         frequency = token.rstrip(',').split(':')[1]
-                        rd_profile[dist] = frequency
+                        rd_profile[distance] = frequency
                     
-                    set_rd_profile(current_thread, current_interval,
+                    self.set_rd_profile(current_thrd, current_interval,
                                    rd_profile)
                 else:
                     pass  # other cases are not relevant

@@ -58,10 +58,10 @@ def rda_plot():
         sys.exit(1)
     benchmark = sys.argv[1]
     input_file = sys.argv[2]
-    num_threads = sys.argv[3]
+    num_threads = int(sys.argv[3])
     new_bm = bm.Benchmark(benchmark, num_threads)
-    new_bm.read_rddata_from_file(bmfile)
-    new_bm.plot_rd_v_interval(new_style=False)
+    new_bm.read_rddata_from_file(input_file)
+    new_bm.plot_rd_profiles(new_style=False)
     sys.stderr.write("my work is done here\n")
 
 
