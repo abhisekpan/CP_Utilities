@@ -31,7 +31,7 @@ def analyze():
     for program_name in benchmarks_to_analyze:
         new_bm = bm.Benchmark(program_name, num_threads)
         bmfile = file_names[benchmarks_to_analyze.index(program_name)]
-        new_bm.read_from_file(bmfile)
+        new_bm.read_mrdata_from_file(bmfile)
         new_bm.plot_mr_v_interval(new_style=False)
         bm_list.append(new_bm)
         

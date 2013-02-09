@@ -31,7 +31,8 @@ class Figure(object):
         """Initialize the plotting environment. 
         
         @param filename: file name where figure will be plotted
-        @param columns: number of columns, defaults to single column
+        @param title: Title of the figure
+        @param columns: number of columns
         @param num_subplots: total number of sub-plots in this figure
         @param fig_width_pt: width of one column in pixels, 
         @param font_size: font size for everything except title
@@ -68,7 +69,7 @@ class Figure(object):
     def set_plot_param(self, subplot, xlabel=None, ylabel=None, title=None,
                         rect=[0.1, 0.15, 0.8, 0.7], legend=True, legend_loc=5):
         """Add a new axis with parameters and return the axis.
-        
+        @param subplot: the subplot for which the axis is set 
         @param xlabel: label for x axis
         @param ylabel: label for y axis
         @title title of the figure using this axis
