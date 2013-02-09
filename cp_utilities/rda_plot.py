@@ -5,7 +5,7 @@ NAME
     rda_plot.py
 
 SYNOPSYS
-    ./combine_intervals.py benchmark input_file
+    ./rda_plot.py benchmark input_file num_threads
 
 DESCRIPTION
     Given the reuse-distance signatures for each intervals for a benchmark,
