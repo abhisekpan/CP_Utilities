@@ -114,8 +114,8 @@ class Benchmark(object):
         """Store the list of miss-rates for all intervals for a cache
         capacity for a thread
         """
-        self.__thread_data[thread].miss_rate_all_intervals[cache_capacity] =
-            miss_rate_all_intervals
+        self.__thread_data[thread].miss_rate_all_intervals[cache_capacity] = \
+                miss_rate_all_intervals
     
     def plot_mr_v_interval(self, new_style=False):
         """ Plot miss rate vs interval for all the threads.
