@@ -8,7 +8,7 @@ import sys
 
 
 _cache_capacities = ["64", "256", "512", "1K", "2K", "64K", "256K", "512K", "1M"]
-
+_MAGIC_MISS_DISTANCE = 4611686018427387904.0  #2^62
 
 class _ThreadData(object):
     """ Holds per-thread data.
@@ -51,30 +51,42 @@ class Benchmark(object):
         """
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
-            filename = self.name + "_t" + plot_id + "_rdp.eps"
+            filename = self.name + "_t" + plot_id + "_rdp"
             subplots = len(data.rd_profiles)
-            figure = fig.Figure(filename, 
+            print "subplot: ", subplots
+            #subplots = 1
+            subplots_per_page = subplots if subplots < 2 else 2
+            figure = fig.Figure(filename,
+                                figformat='pdf',
                                 title="RD Profile for thread " + plot_id,
-                                num_subplots=subplots)
-            #labels = list()
+                                total_subplots=subplots,
+                                subplots_per_page=subplots_per_page,
+                                font_size=7)
             for num_interval in data.rd_profiles:
+                print "num intervals: ", num_interval
+                # Sort the rd_profile on distance
+                # Distances in string, but sort on their values
+                sorted_bins =  data.rd_profiles[num_interval].keys()
+                sorted_bins.sort(key=lambda x:float(x))
                 bins_list = list()
                 freq_list = list()
-                for dist, freq in data.rd_profiles[num_interval].iteritems():
-                    bins_list.append(dist)
-                    freq_list.append(freq)
+                x_index = 0
+                for dist in sorted_bins:
+                    bins_list.append(x_index)
+                    x_index = x_index + 1
+                    freq_list.append(int(data.rd_profiles[num_interval][dist]))
                 bins = np.array(bins_list)
                 rd_freq = np.array(freq_list)
-                #label = "label=" + "Thread " + str(self.__thread_data.index(data))
                 plot_data = [bins, rd_freq]
-                #labels.append('Thread ' + str(self.__thread_data.index(data)))
-                labels = ['Interval: ' + str(num_interval)]
-                sp = figure.add_plot(new_style, labels, *plot_data)    
-                figure.set_plot_param(sp, "reuse distance", "frequency",
-                                      "Interval: " + str(num_interval))
+                legend_labels = ['Interval ' + str(num_interval)]
+                sp = figure.add_plot(new_style, legend_labels, 'reuse distance',
+                                     'frequency', 
+                                     'Interval ' + str(num_interval), sorted_bins,
+                                     *plot_data)    
+                if num_interval >= subplots:
+                    break
 
-            figure.save()
-            figure.close()
+            figure.save_and_close()
 
     def read_rddata_from_file(self, bmfile):
         """Read reuse distance profile data from file."""
@@ -99,13 +111,13 @@ class Benchmark(object):
                     histo_line = line[11:-2]
                     token_list = histo_line.split()
                     for token in token_list:
-                        token.rstrip(',')
-                        distance = token.split(':')[0]
-                        frequency = token.rstrip(',').split(':')[1]
-                        rd_profile[distance] = frequency
-                    
+                        token = token.rstrip(',')
+                        distance = '%.2f' %float(token.split(':')[0])
+                        frequency = token.split(':')[1]
+                        if float(distance) < _MAGIC_MISS_DISTANCE:
+                            rd_profile[distance] = frequency
                     self.set_rd_profile(current_thrd, current_interval,
-                                   rd_profile)
+                                        rd_profile)
                 else:
                     pass  # other cases are not relevant
 
