@@ -8,8 +8,8 @@ SYNOPSYS
     ./rda_plot.py benchmark input_file num_threads
 
 DESCRIPTION
-    Given the reuse-distance signatures for each intervals for a benchmark,
-    plots the reuse distance signature for each interval in a subplot. Ouputs
+    Given the reuse-distance signatures for each interval for a benchmark,
+    plots the reuse distance signature for each interval in a subplot. Outputs
     one file per thread.
  
 OPTIONS
@@ -19,6 +19,7 @@ OPTIONS
     input_file
         Input file containing reuse-distance signatures per interval. This has
         to be the output of the reuse distance Pintool.
+
     num_threads
         Number of threads.
                        

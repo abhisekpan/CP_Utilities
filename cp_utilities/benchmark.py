@@ -20,6 +20,9 @@ class _ThreadData(object):
     rd_profiles: dictionary, keys are intervals and value is a dictionary of
     frequencies for different bins of reuse-distance ie. bins are keys and
     frequencies are values.
+    delete:cluster_rd_profiles: dictionary, keys are cluster ids and value is a dict
+    of frequencies for different bins of reuse-distance ie. bins are keys and
+    frequencies are values.
     """
     pass
 
@@ -35,15 +38,15 @@ class Benchmark(object):
         for thread_data in self.__thread_data:
             thread_data.miss_rate_all_intervals = dict()
             thread_data.rd_profiles = dict()
-
-    def set_rd_profile(self, thread, interval, rd_profile):
-        """Store the list of reuse-distance frequencies for an interval for a
+    
+    def set_rd_profile(self, thread, profile_id, rd_profile):
+        """Store the list of reuse-distance frequencies for an id for a
         thread.
         """
-        self.__thread_data[thread].rd_profiles[interval] = rd_profile
+        self.__thread_data[thread].rd_profiles[profile_id] = rd_profile
     
-    def plot_rd_profiles(self, new_style=False):
-        """Plot reuse-distance profile for all intervals for all threads.
+    def plot_rd_profiles(self, new_style=False, file_prefix=None):
+        """Plot reuse-distance profile for all ids for all threads.
         
         A separate file for each thread. Each subplot is for an interval.
         X-axis denotes the number of reuse-distance bins and Y-axis denotes the
@@ -52,6 +55,7 @@ class Benchmark(object):
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
             filename = self.name + "_t" + plot_id + "_rdp"
+            if file_prefix: filename = file_prefix + '_' + filename
             subplots = len(data.rd_profiles)
             print "subplot: ", subplots
             #subplots = 1
@@ -62,11 +66,11 @@ class Benchmark(object):
                                 total_subplots=subplots,
                                 subplots_per_page=subplots_per_page,
                                 font_size=7)
-            for num_interval in data.rd_profiles:
-                print "num intervals: ", num_interval
+            for profile_id in data.rd_profiles:
+                print "profile id: ", profile_id
                 # Sort the rd_profile on distance
                 # Distances in string, but sort on their values
-                sorted_bins =  data.rd_profiles[num_interval].keys()
+                sorted_bins =  data.rd_profiles[profile_id].keys()
                 sorted_bins.sort(key=lambda x:float(x))
                 bins_list = list()
                 freq_list = list()
@@ -74,16 +78,16 @@ class Benchmark(object):
                 for dist in sorted_bins:
                     bins_list.append(x_index)
                     x_index = x_index + 1
-                    freq_list.append(int(data.rd_profiles[num_interval][dist]))
+                    freq_list.append(int(data.rd_profiles[profile_id][dist]))
                 bins = np.array(bins_list)
                 rd_freq = np.array(freq_list)
                 plot_data = [bins, rd_freq]
-                legend_labels = ['Interval ' + str(num_interval)]
+                legend_labels = ['Profile Id ' + str(profile_id)]
                 sp = figure.add_plot(new_style, legend_labels, 'reuse distance',
                                      'frequency', 
-                                     'Interval ' + str(num_interval), sorted_bins,
+                                     'Profile Id ' + str(profile_id), sorted_bins,
                                      *plot_data)    
-                if num_interval >= subplots:
+                if profile_id >= subplots:
                     break
 
             figure.save_and_close()
@@ -93,6 +97,39 @@ class Benchmark(object):
         IsInterval = lambda line: line.startswith("Interval")
         IsThread = lambda line: line.startswith("thread")
         IsHistogram = lambda line: line.startswith("histogram")
+    
+        # Initialization
+        current_interval = 0
+        current_thrd = 0
+
+        with open(bmfile, 'r') as src:
+            for line in src:
+                if IsInterval(line):
+                    current_interval = current_interval + 1
+                
+                elif IsThread(line):
+                    current_thrd = int(line.split(':', 1)[1])
+
+                elif IsHistogram(line):
+                    rd_profile = dict()
+                    histo_line = line[11:-2]
+                    token_list = histo_line.split()
+                    for token in token_list:
+                        token = token.rstrip(',')
+                        distance = '%.2f' %float(token.split(':')[0])
+                        frequency = token.split(':')[1]
+                        if float(distance) < _MAGIC_MISS_DISTANCE:
+                            rd_profile[distance] = frequency
+                    self.set_rd_profile(current_thrd, current_interval,
+                                        rd_profile)
+                else:
+                    pass  # other cases are not relevant
+    
+    def read_cluster_rddata_from_file(self, bmfile):
+        """Read cluster reuse distance profile data from file."""
+        IsCluster = lambda line: line.startswith("cluster")
+        IsThread = lambda line: line.startswith("thread")
+        IsHistogram = lambda line: line.startswith("histogram_eqn")
     
         # Initialization
         current_interval = 0
