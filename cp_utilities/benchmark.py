@@ -2,6 +2,7 @@
 Exports the Benchmark class, which is responsible for storing and plotting the
 data corresponding to a benchmark.
 """
+import datetime as dt
 import figure as fig
 import numpy as np
 import sys
@@ -45,7 +46,7 @@ class Benchmark(object):
         """
         self.__thread_data[thread].rd_profiles[profile_id] = rd_profile
     
-    def plot_rd_profiles(self, new_style=False, file_prefix=None):
+    def plot_rd_profiles(self, new_style=False, file_suffix=None):
         """Plot reuse-distance profile for all ids for all threads.
         
         A separate file for each thread. Each subplot is for an interval.
@@ -54,18 +55,19 @@ class Benchmark(object):
         """
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
-            filename = self.name + "_t" + plot_id + "_rdp"
-            if file_prefix: filename = file_prefix + '_' + filename
+            if not(file_suffix):
+                file_suffix = dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
+            filename = self.name + "/" + self.name + "_t" + plot_id + "_rdp" + file_suffix
             subplots = len(data.rd_profiles)
+            subplots = 10
             print "subplot: ", subplots
-            #subplots = 1
             subplots_per_page = subplots if subplots < 2 else 2
             figure = fig.Figure(filename,
                                 figformat='pdf',
                                 title="RD Profile for thread " + plot_id,
                                 total_subplots=subplots,
                                 subplots_per_page=subplots_per_page,
-                                font_size=7)
+                                font_size=3)
             for profile_id in data.rd_profiles:
                 print "profile id: ", profile_id
                 # Sort the rd_profile on distance

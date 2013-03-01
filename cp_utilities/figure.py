@@ -75,6 +75,7 @@ class Figure(object):
         fig_height_in = fig_width_in * _golden_mean * self.rows # height in inches
         fig_size = [fig_width_in, fig_height_in]
         self.plot_params = {'backend': self.figformat,
+               'font.size': font_size,
                'axes.labelsize': font_size,
                'text.fontsize': font_size,
                'legend.fontsize': font_size,
@@ -153,7 +154,7 @@ class Figure(object):
         new_page = ((self.current_plot % self.subplots_per_page) == 0)
         last_page = (self.current_plot == self.total_subplots)
         if new_page or last_page :
-            self.figure.savefig(self.filename, format=self.figformat)
+            self.figure.savefig(self.filename, format=self.figformat, bbox_inches='tight')
             self.num_pages = self.num_pages - 1
             if (self.num_pages > 0):
                 self.create_new_figure()
