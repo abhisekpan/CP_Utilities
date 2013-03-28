@@ -5,7 +5,7 @@ NAME
     rda_plot.py
 
 SYNOPSYS
-    ./rda_plot.py benchmark input_file num_threads
+    ./rda_plot.py benchmark input_file num_threads [filter_capacity]
 
 DESCRIPTION
     Given the reuse-distance signatures for each interval for a benchmark,

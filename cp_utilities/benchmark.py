@@ -1,6 +1,6 @@
 """
 Exports the Benchmark class, which is responsible for storing and plotting the
-data corresponding to a benchmark.
+data corresponding to a benchmark. Utility class that is used by most scripts.
 """
 import datetime as dt
 import figure as fig
@@ -21,9 +21,6 @@ class _ThreadData(object):
     rd_profiles: dictionary, keys are intervals and value is a dictionary of
     frequencies for different bins of reuse-distance ie. bins are keys and
     frequencies are values.
-    delete:cluster_rd_profiles: dictionary, keys are cluster ids and value is a dict
-    of frequencies for different bins of reuse-distance ie. bins are keys and
-    frequencies are values.
     """
     pass
 
@@ -31,20 +28,35 @@ class _ThreadData(object):
 class Benchmark(object):
     """Stores the data associated with a benchmark"""
 
-    def __init__(self, name, num_threads):
+    def __init__(self, name, num_threads, num_sets=1, num_ways=1):
         """Constructor"""
         self.name = name
         self.num_threads = num_threads
-        self.__thread_data = [_ThreadData() for dummy in xrange(self.num_threads)]
+        self.num_sets = num_sets
+        self.num_ways = num_ways
+        assert (num_ways % num_threads == 0), \
+            "Number of ways should be multiple of number of threads"
+        self.capacities = [x * num_sets for x in xrange(1, num_ways + 1)]
+        self.capacities.append(int(_MAGIC_MISS_DISTANCE))  # infinite capacity
+        print "cap: ", self.capacities
+        self.__thread_data = [_ThreadData() for 
+            dummy in xrange(self.num_threads)]
         for thread_data in self.__thread_data:
             thread_data.miss_rate_all_intervals = dict()
             thread_data.rd_profiles = dict()
+            thread_data.freq_v_cap = dict()
     
     def set_rd_profile(self, thread, profile_id, rd_profile):
         """Store the list of reuse-distance frequencies for an id for a
         thread.
         """
         self.__thread_data[thread].rd_profiles[profile_id] = rd_profile
+    
+    def set_freq_cdf(self, thread, profile_id, freq_cdf):
+        """Store the cdf for frequencies with capacities for an id for a
+        thread.
+        """
+        self.__thread_data[thread].freq_v_cap[profile_id] = freq_cdf
     
     def plot_rd_profiles(self, new_style=False, filter_distance=0.0,
                          file_suffix=None):
@@ -62,7 +74,6 @@ class Benchmark(object):
         filter, which can increase, decrease, or stay the same depending on
         the sequence of references.
         """
-        print "filter: ", filter_distance
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
             if not(file_suffix):
@@ -143,7 +154,59 @@ class Benchmark(object):
                                         rd_profile)
                 else:
                     pass  # other cases are not relevant
-    
+
+    def build_freq_vs_capacity_profile(self):
+        """For each thread & interval build cdf of freq vs capacity."""
+        for t, tdata in enumerate(self.__thread_data):
+            for profile_id, rd_profile in tdata.rd_profiles.iteritems():
+                freq_cdf = [0 for dummy in xrange(len(self.capacities))]
+                running_total = running_idx = 0
+                for dist, freq in rd_profile.iteritems():
+                    while (float(dist) >= self.capacities[running_idx]):
+                        freq_cdf[running_idx] = running_total
+                        running_idx += 1
+                    running_total += int(freq)
+                while running_idx < len(self.capacities):
+                    freq_cdf[running_idx] = running_total
+                    running_idx += 1
+                #print "thread:", t, " interval:", profile_id, " cdf:", freq_cdf
+                self.set_freq_cdf(t, profile_id, freq_cdf)
+
+    def find_best_partition(self):
+        """For each interval for each thread as prefeered thread, find the
+        best possible partition"""
+        default_alloc = self.num_ways / self.num_threads
+        max_alloc = self.num_ways - (self.num_threads - 1)
+        num_profiles = len(self.__thread_data[0].rd_profiles)
+        for preferred_t in xrange(self.num_threads):
+            sys.stdout.write("Preferred thread: %d\n" % preferred_t)
+            for profile_id in xrange(num_profiles):
+                max_gain = 0
+                best_alloc = default_alloc
+                preferred_alloc = default_alloc + (self.num_threads - 1)
+                other_alloc = default_alloc - 1
+                while (preferred_alloc <= max_alloc):
+                    pos_gain = self.gain(preferred_t, profile_id + 1, 
+                                         default_alloc, preferred_alloc)
+                    neg_gain = sum(self.gain(t, profile_id + 1,
+                                   default_alloc, other_alloc)
+                        for t in xrange(self.num_threads) if t != preferred_t)
+                    gain = pos_gain + neg_gain
+                    if gain > max_gain:
+                        max_gain = gain
+                        best_alloc = preferred_alloc
+                    preferred_alloc += (self.num_threads - 1)
+                    other_alloc -= 1
+
+                sys.stdout.write("Best Alloc for Interval %d: %d\n" % 
+                    (profile_id + 1, best_alloc))
+
+    def gain(self, thread, profile_id, from_alloc, to_alloc):
+        "Return the gain obtained between two allocations"""
+        g = (self.__thread_data[thread].freq_v_cap[profile_id][to_alloc - 1] -
+            self.__thread_data[thread].freq_v_cap[profile_id][from_alloc - 1])
+        return g
+
     def read_cluster_rddata_from_file(self, bmfile):
         """Read cluster reuse distance profile data from file."""
         IsCluster = lambda line: line.startswith("cluster")
