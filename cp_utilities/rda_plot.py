@@ -18,13 +18,17 @@ OPTIONS
 
     input_file
         Input file containing reuse-distance signatures per interval. This has
-        to be the output of the reuse distance Pintool.
+        to be the output of the reuse distance tool, using Pin or simics.
 
     num_threads
         Number of threads.
+    
+    filter_capacity
+        Capacity of the reuse distance filter, if any. Optional
                        
 EXAMPLES
     ./rda_plot.py  blackscholes inter_rda_blackscholes_large_4_5mil.out 4
+    512
 
 NOTES
 
@@ -53,16 +57,18 @@ def rda_plot():
     #=======================================================================
     # command line processing
     #=======================================================================
-    if len(sys.argv) != 4:
+    if not(4 <= len(sys.argv) <= 5):
         sys.stdout.write("Incorrect number of arguments. Program description:\n" 
                          + __doc__)
         sys.exit(1)
     benchmark = sys.argv[1]
     input_file = sys.argv[2]
     num_threads = int(sys.argv[3])
+    filter_distance = 0
+    if len(sys.argv) == 5: filter_distance = float(sys.argv[4])
     new_bm = bm.Benchmark(benchmark, num_threads)
     new_bm.read_rddata_from_file(input_file)
-    new_bm.plot_rd_profiles(new_style=False)
+    new_bm.plot_rd_profiles(new_style=False, filter_distance=filter_distance)
     sys.stderr.write("my work is done here\n")
 
 

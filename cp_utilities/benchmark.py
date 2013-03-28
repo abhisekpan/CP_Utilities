@@ -46,20 +46,30 @@ class Benchmark(object):
         """
         self.__thread_data[thread].rd_profiles[profile_id] = rd_profile
     
-    def plot_rd_profiles(self, new_style=False, file_suffix=None):
+    def plot_rd_profiles(self, new_style=False, filter_distance=0.0,
+                         file_suffix=None):
         """Plot reuse-distance profile for all ids for all threads.
         
         A separate file for each thread. Each subplot is for an interval.
         X-axis denotes the number of reuse-distance bins and Y-axis denotes the
         frequency of accesses.
+        Filter_distance is used to simulate the effects of a smaller filtering
+        cache (such as the filtering effects of an L1 cache for an L2 cache).
+        Filter_distance is equal to the capacity of the filtering cache. We
+        assume that all accesses with distance <  the filter_distance will be
+        hit. Of course this does not take into account of the effect filtering
+        has on the distance values of the references which pass through the
+        filter, which can increase, decrease, or stay the same depending on
+        the sequence of references.
         """
+        print "filter: ", filter_distance
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
             if not(file_suffix):
                 file_suffix = dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
             filename = self.name + "/" + self.name + "_t" + plot_id + "_rdp" + file_suffix
             subplots = len(data.rd_profiles)
-            subplots = 10
+            #if subplots > 50: subplots = 50
             print "subplot: ", subplots
             subplots_per_page = subplots if subplots < 2 else 2
             figure = fig.Figure(filename,
@@ -78,16 +88,23 @@ class Benchmark(object):
                 freq_list = list()
                 x_index = 0
                 for dist in sorted_bins:
+                    if float(dist) < filter_distance:
+                        continue
                     bins_list.append(x_index)
                     x_index = x_index + 1
                     freq_list.append(int(data.rd_profiles[profile_id][dist]))
                 bins = np.array(bins_list)
                 rd_freq = np.array(freq_list)
                 plot_data = [bins, rd_freq]
+                if (filter_distance > 0):
+                    dist_labels = [x for x in sorted_bins 
+                        if float(x) >= filter_distance]
+                else:
+                    dist_labels = sorted_bins
                 legend_labels = ['Profile Id ' + str(profile_id)]
                 sp = figure.add_plot(new_style, legend_labels, 'reuse distance',
                                      'frequency', 
-                                     'Profile Id ' + str(profile_id), sorted_bins,
+                                     'Profile Id ' + str(profile_id), dist_labels,
                                      *plot_data)    
                 if profile_id >= subplots:
                     break
