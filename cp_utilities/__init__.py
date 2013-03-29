@@ -1,1 +1,1 @@
-__all__ = ['figure']
+__all__ = ['figure', 'benchmark']

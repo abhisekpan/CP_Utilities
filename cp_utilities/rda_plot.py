@@ -49,7 +49,6 @@ VERSION
 
 import sys
 import benchmark as bm
-import plot_data as pd
 
 
 def rda_plot():

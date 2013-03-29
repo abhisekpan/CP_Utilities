@@ -38,7 +38,7 @@ class Benchmark(object):
             "Number of ways should be multiple of number of threads"
         self.capacities = [x * num_sets for x in xrange(1, num_ways + 1)]
         self.capacities.append(int(_MAGIC_MISS_DISTANCE))  # infinite capacity
-        print "cap: ", self.capacities
+        #print "cap: ", self.capacities
         self.__thread_data = [_ThreadData() for 
             dummy in xrange(self.num_threads)]
         for thread_data in self.__thread_data:
@@ -57,6 +57,12 @@ class Benchmark(object):
         thread.
         """
         self.__thread_data[thread].freq_v_cap[profile_id] = freq_cdf
+    
+    def get_freq_cdf(self, thread, profile_id):
+        """Return the cdf for frequencies with capacities for an id for a
+        thread.
+        """
+        return self.__thread_data[thread].freq_v_cap[profile_id]
     
     def plot_rd_profiles(self, new_style=False, filter_distance=0.0,
                          file_suffix=None):
@@ -161,7 +167,9 @@ class Benchmark(object):
             for profile_id, rd_profile in tdata.rd_profiles.iteritems():
                 freq_cdf = [0 for dummy in xrange(len(self.capacities))]
                 running_total = running_idx = 0
-                for dist, freq in rd_profile.iteritems():
+                sorted_keys = sorted(rd_profile.iterkeys(), key=lambda x: float(x))
+                for dist in sorted_keys:
+                    freq = rd_profile[dist]
                     while (float(dist) >= self.capacities[running_idx]):
                         freq_cdf[running_idx] = running_total
                         running_idx += 1
@@ -169,7 +177,6 @@ class Benchmark(object):
                 while running_idx < len(self.capacities):
                     freq_cdf[running_idx] = running_total
                     running_idx += 1
-                #print "thread:", t, " interval:", profile_id, " cdf:", freq_cdf
                 self.set_freq_cdf(t, profile_id, freq_cdf)
 
     def find_best_partition(self):
