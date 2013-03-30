@@ -180,13 +180,15 @@ class Benchmark(object):
                 self.set_freq_cdf(t, profile_id, freq_cdf)
 
     def find_best_partition(self):
-        """For each interval for each thread as prefeered thread, find the
+        """For each interval for each thread as preferred thread, find the
         best possible partition"""
         default_alloc = self.num_ways / self.num_threads
         max_alloc = self.num_ways - (self.num_threads - 1)
-        num_profiles = len(self.__thread_data[0].rd_profiles)
+        num_profiles = len(self.__thread_data[0].freq_v_cap)
+        best_allocations = list()
         for preferred_t in xrange(self.num_threads):
             sys.stdout.write("Preferred thread: %d\n" % preferred_t)
+            best_allocations_per_thread = list()
             for profile_id in xrange(num_profiles):
                 max_gain = 0
                 best_alloc = default_alloc
@@ -204,9 +206,11 @@ class Benchmark(object):
                         best_alloc = preferred_alloc
                     preferred_alloc += (self.num_threads - 1)
                     other_alloc -= 1
-
+                best_allocations_per_thread.append(best_alloc)
                 sys.stdout.write("Best Alloc for Interval %d: %d\n" % 
                     (profile_id + 1, best_alloc))
+            best_allocations.append(best_allocations_per_thread)
+        return best_allocations
 
     def gain(self, thread, profile_id, from_alloc, to_alloc):
         "Return the gain obtained between two allocations"""

@@ -11,6 +11,91 @@ def setUpModule():
     pass
     
 
+class Test_find_best_partition_basic_algo(object):
+    """Contains data-driven tests to check the algorithm for choosing the
+    best partition given the frequency vs capacity histograms. Doesnot
+    check for multiple histograms. Considers 2 threads only."""
+    def setUp(self):
+        self.Initialize()
+        self.testbm = bm.Benchmark("test_bm", self.numthreads, self.numsets,
+                                    self.numways)
+
+    def Initialize(self):
+        self.numsets = 2
+        self.numways = 16
+        self.numthreads = 2 
+    
+    def make_freq_vs_capacities(self):
+        self.testdata = list()
+        num_capacities = self.numways + 1
+        # case 0
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[8], [8]] 
+        freq_pdf[0] = 100
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+        # case 1
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[11],[11]]
+        freq_pdf[0] = freq_pdf[10] = 100
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+        # case 2
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[8],[8]]
+        freq_pdf[5] = freq_pdf[10] = 100
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+        # case 3
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[10],[10]]
+        freq_pdf[5] = freq_pdf[9] = 100
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+        # case 4
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[15],[15]]
+        for i in xrange(num_capacities):
+            if i < self.numways / self.numthreads:
+                freq_pdf[i] = 10
+            else:
+                freq_pdf[i] = 200
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+        # case 5
+        freq_pdf = [0 for dummy in xrange(num_capacities)]
+        best_alloc = [[8],[8]]
+        freq_pdf[0] = 10
+        freq_pdf[self.numways - 1] = 100
+        freq_cdf = [x for x in self.cumsum(freq_pdf)]
+        self.testdata.append((freq_cdf, best_alloc))
+    
+    def cumsum(self, seq):
+        """Cumulative sum for a sequence, to convert fd to cd."""
+        s= 0
+        for c in seq:
+            s+= c
+            yield s
+
+    def test_all_find_best_parition_cases(self):
+        self.Initialize()
+        self.make_freq_vs_capacities()
+        for d in self.testdata:
+            yield self.check_find_best_partition, d[0], d[1]
+
+    def check_find_best_partition(self, inp, target_output):
+        for t in xrange(self.numthreads):
+            self.testbm.set_freq_cdf(t, 1, inp)
+        test_output = self.testbm.find_best_partition()
+        try:
+            assert (test_output == target_output)
+        except AssertionError as err:
+            print "test_op", test_output
+            print "target_op", target_output
+            print(err)
+            raise
+
+
 class Test_build_freq_vs_capacity_profile_basic_algo(object):
     """Contains data-driven tests to check if the algorithm for converting
     reuse distance histograms to capacity_vs_frequency cdfs is correct.
@@ -120,5 +205,4 @@ class Test_build_freq_vs_capacity_profile_basic_algo(object):
 
 def tearDownModule():
     pass
-
 

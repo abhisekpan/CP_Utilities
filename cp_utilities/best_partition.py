@@ -80,7 +80,7 @@ def best_partition():
     new_bm = bm.Benchmark(benchmark, num_threads, num_sets, num_ways)
     new_bm.read_rddata_from_file(input_file)
     new_bm.build_freq_vs_capacity_profile()
-    new_bm.find_best_partition()
+    _ = new_bm.find_best_partition()
     sys.stderr.write("my work is done here\n")
 
 
