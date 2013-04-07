@@ -28,10 +28,11 @@ class _ThreadData(object):
 class Benchmark(object):
     """Stores the data associated with a benchmark"""
 
-    def __init__(self, name, num_threads, num_sets=1, num_ways=1):
+    def __init__(self, name, num_threads, stack_type, num_sets=0, num_ways=0):
         """Constructor"""
         self.name = name
         self.num_threads = num_threads
+        self.stack_type = stack_type
         self.num_sets = num_sets
         self.num_ways = num_ways
         assert (num_ways % num_threads == 0), \
@@ -83,10 +84,12 @@ class Benchmark(object):
         for data in self.__thread_data:
             plot_id = str(self.__thread_data.index(data))
             if not(file_suffix):
-                file_suffix = dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
-            filename = self.name + "/" + self.name + "_t" + plot_id + "_rdp" + file_suffix
+                suffix = dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
+            else:
+                suffix = file_suffix + dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
+            filename = self.name + "/" + self.name + "_t" + plot_id + "_rdp" + suffix
             subplots = len(data.rd_profiles)
-            #if subplots > 50: subplots = 50
+            #if subplots > 2: subplots = 2
             print "subplot: ", subplots
             subplots_per_page = subplots if subplots < 2 else 2
             figure = fig.Figure(filename,
@@ -133,10 +136,13 @@ class Benchmark(object):
         IsInterval = lambda line: line.startswith("Interval")
         IsThread = lambda line: line.startswith("thread")
         IsHistogram = lambda line: line.startswith("histogram")
-    
+        IsShared = lambda line: line.startswith("Shared")
+        IsPrivate = lambda line: line.startswith("Private")
+ 
         # Initialization
         current_interval = 0
         current_thrd = 0
+        stack_type = None
 
         with open(bmfile, 'r') as src:
             for line in src:
@@ -146,7 +152,19 @@ class Benchmark(object):
                 elif IsThread(line):
                     current_thrd = int(line.split(':', 1)[1])
 
+                elif IsShared(line):
+                    stack_type = "shared"
+                    assert self.stack_type != None, "stack type in input \
+                            file: shared, stack type specified: None"
+
+                elif IsPrivate(line):
+                    stack_type = "private"
+                    assert stack_type != None, "stack type in input \
+                            file: private, stack type specified: None"
+
                 elif IsHistogram(line):
+                    if stack_type != self.stack_type:
+                        continue
                     rd_profile = dict()
                     histo_line = line[11:-2]
                     token_list = histo_line.split()
