@@ -8,13 +8,17 @@ import math
 import matplotlib.pyplot as pl
 from itertools import cycle
 from matplotlib.backends.backend_pdf import PdfPages
+import numpy as np
 import sys
 
 
 _inches_per_pt = 1.0 / 72.27               # Convert pt to inch
 _golden_mean = (math.sqrt(5) - 1.0) / 2.0  # Aesthetic ratio
-_lines = ["-", "--", "-.", ":"]
+_lines = ['-', '--', '-.', ':']
+_markers = ['3', 'x', '2', '+']
 _linecycler = cycle(_lines)
+_colors = ['r', 'b', 'g', 'c', 'm', 'y', 'k']
+_patterns = ('//', '*', 'o', '\\', 'O', '.')
 
 
 class Figure(object):
@@ -43,11 +47,12 @@ class Figure(object):
         @param font_size: font size for everything except title
         @param title_font_size: font size for title
         
-        Get the column width in pixels from LaTeX using \showthe\columnwidth.
         This sets some common parameters for the figure, such as font and figure
         sizes. The size of one sub-plot is determined from the parameters. 
         The size of the figure is then set from that and the total number of 
         sub-plots.
+        
+        Get the column width in pixels from LaTeX using \showthe\columnwidth.
 
         For pdf format, we can create a multi-page file, hence we can control
         the number of subplots per page.
@@ -142,7 +147,9 @@ class Figure(object):
         if new_style == True: 
             kwargs['linestyle'] = next(_linecycler)
         else:
-            kwargs['linestyle'] = _lines[0]      # solid line by default
+            kwargs['linestyle'] = '' #_lines[0]      # solid line by default
+        kwargs['markersize'] = 4.0
+        #kwargs['color'] = 'k'
         plot_id_in_page = self.current_plot % self.subplots_per_page
         if plot_id_in_page == 0: plot_id_in_page = self.subplots_per_page
         sp = self.figure.add_subplot(self.rows, self.columns, plot_id_in_page)
@@ -150,6 +157,49 @@ class Figure(object):
         sp.set_xticks(args[0])
         if labels:
             dummy = [line.set_label(label) for line, label in zip(lines, labels)]
+        dummy = [line.set_marker(marker) for line, marker in zip(lines, _markers)]
+        self.set_plot_param(sp, xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, legend=True)
+        new_page = ((self.current_plot % self.subplots_per_page) == 0)
+        last_page = (self.current_plot == self.total_subplots)
+        if new_page or last_page :
+            self.figure.savefig(self.filename, format=self.figformat, bbox_inches='tight')
+            self.num_pages = self.num_pages - 1
+            if (self.num_pages > 0):
+                self.create_new_figure()
+        return sp
+    
+    def add_stackedbar(self, labels=None, xlabel=None, ylabel=None,
+                title=None, xticks=None, *args, **kwargs):
+        """Add a new stacked bar sub-plot to the figure.
+        
+        If pdf format is used savefig needs to be called for each new page.
+        For eps format, savefig is called only once after all subplots are
+        added.
+
+        """
+        self.current_plot += 1
+        assert self.current_plot <= self.total_subplots, \
+        "too many sub-plots in this figure!"
+        kwargs['align'] = 'center'
+        kwargs['linewidth'] = 0.1
+        kwargs['width'] = 0.35
+        colorcycler = cycle(_colors)
+        patterncycler = cycle(_patterns)
+        ind_axis = args[0]
+        num_stacks = len(args) - 1
+        plot_id_in_page = self.current_plot % self.subplots_per_page
+        if plot_id_in_page == 0: plot_id_in_page = self.subplots_per_page
+        sp = self.figure.add_subplot(self.rows, self.columns, plot_id_in_page)
+        for i in xrange(1, num_stacks + 1):
+            lower_stacks = np.sum([args[j] for j in xrange(1,i)], axis=0)
+            kwargs['color'] = next(colorcycler)
+            #kwargs['alpha'] = 1
+            kwargs['edgecolor'] = 'black'
+            #kwargs['hatch'] = next(patterncycler)
+            #kwargs['bottom'] = lower_stacks
+            rectangles = sp.bar(ind_axis, args[i], bottom=lower_stacks, **kwargs)
+            if labels: rectangles[0].set_label(labels[i-1])
+        sp.set_xticks(args[0])
         self.set_plot_param(sp, xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, legend=True)
         new_page = ((self.current_plot % self.subplots_per_page) == 0)
         last_page = (self.current_plot == self.total_subplots)
