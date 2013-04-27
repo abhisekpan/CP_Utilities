@@ -37,7 +37,7 @@ OPTIONS
         Size of intervals each quantum in round robin partitioning
                        
 EXAMPLES
-    ./rda_plot.py  blackscholes inter_rda_blackscholes_large_4_5mil.out 4 0
+    ./rda_by_hit_plot.py  blackscholes inter_rda_blackscholes_large_4_5mil.out 4 0
     1 23
 
 NOTES
