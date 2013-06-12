@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as pl
 from itertools import cycle
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import MultipleLocator, AutoLocator
 import numpy as np
 import sys
 
@@ -17,7 +18,7 @@ _golden_mean = (math.sqrt(5) - 1.0) / 2.0  # Aesthetic ratio
 _lines = ['-', '--', '-.', ':']
 _markers = ['3', 'x', '2', '+']
 _linecycler = cycle(_lines)
-_colors = ['r', 'b', 'g', 'c', 'm', 'y', 'k']
+_colors = ['r', 'BurlyWood', 'b', 'g', 'k', 'c', 'm', 'y']
 _patterns = ('//', '*', 'o', '\\', 'O', '.')
 
 
@@ -33,8 +34,8 @@ class Figure(object):
     """    
     
     def __init__(self, filename, figformat='pdf', title=None, columns=1,
-                 total_subplots=1, subplots_per_page=1, fig_width_pt=500.0,
-                 font_size=9, title_font_size=10):
+                 total_subplots=1, subplots_per_page=1, fig_width_pt=175.0,
+                 font_size=6, title_font_size=6):
         """Initialize the plotting environment. 
         
         @param filename: file name where figure will be plotted
@@ -83,7 +84,8 @@ class Figure(object):
                'font.size': font_size,
                'axes.labelsize': font_size,
                'text.fontsize': font_size,
-               'legend.fontsize': font_size,
+               'legend.fontsize': font_size - 1, # - 2,
+               'legend.labelspacing': 0.05,
                'xtick.labelsize': font_size,
                'ytick.labelsize': font_size,
                'text.usetex': True,
@@ -96,10 +98,11 @@ class Figure(object):
     def create_new_figure(self):
         """Create a new figure"""
         self.figure = pl.figure()
-        self.figure.suptitle(self.title, fontsize=self.title_font_size)
+        if self.title is not None:
+            self.figure.suptitle(self.title, fontsize=self.title_font_size)
 
     def set_plot_param(self, subplot, xlabel=None, ylabel=None, title=None, xticks=None,
-                        rect=[0.1, 0.15, 0.8, 0.7], legend=True, legend_loc=5):
+                        rect=[0.1, 0.15, 0.8, 0.7], legend=True, legend_loc=1):
         """Add a new axis with parameters and return the axis.
         @param subplot: the subplot for which the axis is set 
         @param xlabel: label for x axis
@@ -126,11 +129,18 @@ class Figure(object):
 
         """
         #subplot.set_position(rect)
+        subplot.ticklabel_format(style='sci',scilimits=(-3,4),axis='both')
+        #subplot.get_yaxis().get_major_formatter().set_scientific(True)
+        #subplot.xaxis.set_major_locator( MultipleLocator(1.00) )
+        #subplot.yaxis.set_major_locator( AutoLocator )
         if xlabel:  subplot.set_xlabel(r'\textit{' + xlabel + '}')
         if ylabel:  subplot.set_ylabel(r'\textit{' + ylabel + '}')
-        if title:   subplot.set_title(title.encode('string-escape'))
-        if legend:  subplot.legend(loc=legend_loc)
-        if xticks:  subplot.set_xticklabels(xticks, rotation=90)
+        if title is not None: subplot.set_title(title.encode('string-escape'))
+        if legend:  subplot.legend(loc=9, bbox_to_anchor=(0.65, 0.9), ncol=2)
+        #if legend:  subplot.legend(loc=legend_loc)
+        #if legend:  subplot.legend(loc=5)
+        if xticks:  subplot.set_xticklabels(xticks, rotation=70)
+        #subplot.locator_params(tight=True)
 
     def add_plot(self, new_style=False, labels=None, xlabel=None, ylabel=None,
                 title=None, xticks=None, *args, **kwargs):
@@ -153,7 +163,16 @@ class Figure(object):
         plot_id_in_page = self.current_plot % self.subplots_per_page
         if plot_id_in_page == 0: plot_id_in_page = self.subplots_per_page
         sp = self.figure.add_subplot(self.rows, self.columns, plot_id_in_page)
+        sp.set_ylim([0,1])
+        #for direction in ["left"]:
+            #sp.spines[direction].set_position(('data', -1.0))
+            #sp.spines[direction].set_smart_bounds(True)
+        #for direction in ["right","top"]:
+            #sp.spines[direction].set_color('none')
+        #sp.xaxis.set_ticks_position('bottom')
+        #sp.yaxis.set_ticks_position('left')
         lines = sp.plot(*args, **kwargs)
+        #sp.set_yscale('log')
         sp.set_xticks(args[0])
         if labels:
             dummy = [line.set_label(label) for line, label in zip(lines, labels)]
@@ -199,6 +218,14 @@ class Figure(object):
             #kwargs['bottom'] = lower_stacks
             rectangles = sp.bar(ind_axis, args[i], bottom=lower_stacks, **kwargs)
             if labels: rectangles[0].set_label(labels[i-1])
+        for direction in ["left","bottom"]:
+            sp.spines[direction].set_position(('data', -1.0))
+            sp.spines[direction].set_smart_bounds(True)
+            for direction in ["right","top"]:
+                sp.spines[direction].set_color('none')
+            sp.xaxis.set_ticks_position('bottom')
+            sp.yaxis.set_ticks_position('left')
+            #sp.grid(True)
         sp.set_xticks(args[0])
         self.set_plot_param(sp, xlabel=xlabel, ylabel=ylabel, title=title, xticks=xticks, legend=True)
         new_page = ((self.current_plot % self.subplots_per_page) == 0)

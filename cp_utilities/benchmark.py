@@ -4,6 +4,7 @@ data corresponding to a benchmark. Utility class that is used by most scripts.
 """
 import datetime as dt
 import figure as fig
+import itertools as it
 import numpy as np
 import sys
 
@@ -37,7 +38,9 @@ class Benchmark(object):
         self.num_ways = num_ways
         assert (num_ways % num_threads == 0), \
             "Number of ways should be multiple of number of threads"
-        self.capacities = [x * num_sets for x in xrange(1, num_ways + 1)]
+        self.ways = [x for x in xrange(1, num_ways + 1)]
+        self.capacities = [x * num_sets for x in self.ways]
+        self.ways.append(int(_MAGIC_MISS_DISTANCE))  # infinite capacity
         self.capacities.append(int(_MAGIC_MISS_DISTANCE))  # infinite capacity
         self.__thread_data = [_ThreadData() for 
             dummy in xrange(self.num_threads)]
@@ -45,12 +48,14 @@ class Benchmark(object):
             thread_data.miss_rate_all_intervals = dict()
             thread_data.rd_profiles = dict()
             thread_data.freq_v_cap = dict()
+            thread_data.total_freq = dict()
     
-    def set_rd_profile(self, thread, profile_id, rd_profile):
+    def set_rd_profile(self, thread, profile_id, rd_profile, tot_freq):
         """Store the list of reuse-distance frequencies for an id for a
         thread.
         """
         self.__thread_data[thread].rd_profiles[profile_id] = rd_profile
+        self.__thread_data[thread].total_freq[profile_id] = tot_freq
     
     def set_freq_cdf(self, thread, profile_id, freq_cdf):
         """Store the cdf for frequencies with capacities for an id for a
@@ -149,10 +154,10 @@ class Benchmark(object):
         filename = self.name + "/" + self.name + "_all_rdp" + suffix
         figure = fig.Figure(filename,
                             figformat='pdf',
-                            title="RD Profile for all threads ",
+                            #title="RD Profile for all threads ",
                             total_subplots=subplots,
                             subplots_per_page=subplots_per_page,
-                            font_size=3)
+                            font_size=6)
         for profile_id in self.__thread_data[0].rd_profiles:
             print "profile id: ", profile_id
             plot_data = list()
@@ -170,25 +175,48 @@ class Benchmark(object):
                 bins_list = list()
                 freq_list = list()
                 x_index = 0
+                cum_freq = 0.0
+                #cum_freq = 0
+                tot_freq = data.total_freq[profile_id]
                 for dist in all_keys_list:
                     bins_list.append(x_index)
                     x_index = x_index + 1
                     if dist in data.rd_profiles[profile_id]:
-                        freq_list.append(int(data.rd_profiles[profile_id][dist]))
+                        cum_freq += int(data.rd_profiles[profile_id][dist])
+                        #freq_list.append(int(data.rd_profiles[profile_id][dist]))
                     else:
-                        freq_list.append(0)
+                       pass
+                        #freq_list.append(0)
+                    freq_list.append((tot_freq - cum_freq) / tot_freq)
+                    #freq_list.append((tot_freq - cum_freq))
                 bins = np.array(bins_list)
                 rd_freq = np.array(freq_list)
                 plot_data.append(bins)
                 plot_data.append(rd_freq)
                 plot_id = str(self.__thread_data.index(data))
-                legend_labels.append("Thread: " + plot_id)
-            dist_labels = all_keys_list
+                legend_labels.append("Thread " + plot_id)
+            dist_labels = list()
+            idx = 0
+            for l in all_keys_list:
+                val = float(l)
+                if val == pow(2.00,idx):
+                    if idx == 1:
+                        dist_labels.append(' ')
+                    else:
+                        dist_labels.append(l)
+                    idx += 1
+                else:
+                    dist_labels.append(' ')
+            #dist_labels = all_keys_list    
             #legend_labels = ['Profile Id ' + str(profile_id)]
-            sp = figure.add_plot(new_style, legend_labels, 'reuse distance',
-                                     'frequency', 
-                                     'Profile Id ' + str(profile_id), dist_labels,
-                                     *plot_data)    
+            sp = figure.add_plot(new_style, 
+                                 legend_labels, 
+                                 'Reuse Distance',
+                                 'Miss Rate',
+                                 ' ',
+                                 #'Profile Id ' + str(profile_id), 
+                                 dist_labels,
+                                 *plot_data)    
             if profile_id >= subplots:
                 break
         figure.save_and_close()
@@ -212,13 +240,14 @@ class Benchmark(object):
             subplots = len(data.rd_profiles)
             #if subplots > 2: subplots = 2
             print "subplot: ", subplots
-            subplots_per_page = subplots if subplots < 2 else 2
+            #subplots_per_page = subplots if subplots < 2 else 2
+            subplots_per_page = 1
             figure = fig.Figure(filename,
                                 figformat='pdf',
-                                title="RD Profile by Hit Status for thread " + plot_id,
+                                #title="RD Profile by Hit Status for thread " + plot_id,
                                 total_subplots=subplots,
                                 subplots_per_page=subplots_per_page,
-                                font_size=3)
+                                font_size=6)
             for profile_id in data.rd_profiles:
                 print "profile id: ", profile_id
                 # Sort the rd_profile on distance
@@ -249,13 +278,14 @@ class Benchmark(object):
                 plot_data = [bins, rd_freq_m, rd_freq_p_l_h, rd_freq_p_f_h,
                     rd_freq_s_l_h, rd_freq_s_f_h]
                 dist_labels = sorted_bins
-                legend_labels = ['Miss', 'Private Local Hit',
-                                 'Private Foreign Hit', 'Shared Local Hit',
+                legend_labels = ['Miss', 'Private Self-Hit',
+                                 'Private Foreign Hit', 'Shared Self-Hit',
                                  'Shared Foreign Hit']
                 sp = figure.add_stackedbar(legend_labels,
-                                           'reuse distance',
-                                           'frequency', 
-                                           'Profile Id ' + str(profile_id),
+                                           'Reuse Distance',
+                                           'References', 
+                                           #'Profile Id ' + str(profile_id),
+                                           '',
                                            dist_labels,
                                            *plot_data)    
                 if profile_id >= subplots:
@@ -277,6 +307,7 @@ class Benchmark(object):
         current_thrd = 0
         stack_type = None
         rd_profiles = [dict() for dummy in xrange(num_threads)]
+        total_freq = [0 for dummy in xrange(num_threads)]
         with open(bmfile, 'r') as src:
             for line in src:
                 if IsInterval(line):
@@ -306,9 +337,12 @@ class Benchmark(object):
                         distance = '%.2f' %float(subtokens[0])
                         if len(subtokens) == 2:
                             frequency = subtokens[1]
+                            total_freq[current_thrd] += int(frequency)
                         else:
                             frequency = [subtokens[i] 
                                 for i in xrange(1, len(subtokens))]
+                            for f in frequency:
+                                total_freq[current_thrd] += int(f)
                         if float(distance) < _MAGIC_MISS_DISTANCE:
                             if distance in rd_profiles[current_thrd]:
                                 old_freq = rd_profiles[current_thrd][distance]
@@ -331,8 +365,9 @@ class Benchmark(object):
                         profile_id = ((current_interval - offset) / quantum_size) + profile_id_offset
                         print 'to save', current_interval, profile_id
                         self.set_rd_profile(current_thrd, profile_id,
-                                        rd_profiles[current_thrd])
+                                        rd_profiles[current_thrd], total_freq[current_thrd])
                         rd_profiles[current_thrd] = dict()
+                        total_freq[current_thrd] = 0
                 
                 else:
                     pass  # other cases are not relevant
@@ -341,7 +376,7 @@ class Benchmark(object):
                     profile_id = ((current_interval - offset) / quantum_size) + profile_id_offset + 1
                     print 'to save', current_interval, profile_id
                     self.set_rd_profile(i, profile_id,
-                                    rd_profiles[i])
+                                    rd_profiles[i], total_freq[i])
     
     def read_rddata_from_file_2phase(self, bmfile, num_threads, offset=0, quantum_size=1, start_thread=0):
         """Read reuse distance profile data from file."""
@@ -376,7 +411,7 @@ class Benchmark(object):
                     if current_interval <= offset:
                         preferred_status = 0
                     else:
-                        age_in_epoch = (current_interval - offset) % epoch_size
+                        age_in_epoch = (current_interval - offset - 1) % epoch_size
                         if preferred_threads[age_in_epoch] == current_thrd:
                             preferred_status = 1
                         else:
@@ -438,10 +473,28 @@ class Benchmark(object):
                     pass  # other cases are not relevant
             for i in xrange(num_threads):
                 profile_id = 1
-                self.set_rd_profile(i, profile_id, rd_profiles_p[i])
+                self.set_rd_profile(i, profile_id, rd_profiles_p[i], 0)
                 profile_id = 2 
-                self.set_rd_profile(i, profile_id, rd_profiles_u[i])
+                self.set_rd_profile(i, profile_id, rd_profiles_u[i], 0)
 
+    def build_freq_vs_ways_profile(self):
+        """For each thread & interval build cdf of freq vs number of ways."""
+        for t, tdata in enumerate(self.__thread_data):
+            for profile_id, rd_profile in tdata.rd_profiles.iteritems():
+                freq_cdf = [0 for dummy in xrange(len(self.ways))]
+                running_total = running_idx = 0
+                sorted_keys = sorted(rd_profile.iterkeys(), key=lambda x: float(x))
+                for dist in sorted_keys:
+                    freq = rd_profile[dist]
+                    while (float(dist) >= self.ways[running_idx]):
+                        freq_cdf[running_idx] = running_total
+                        running_idx += 1
+                    running_total += int(freq)
+                while running_idx < len(self.ways):
+                    freq_cdf[running_idx] = running_total
+                    running_idx += 1
+                self.set_freq_cdf(t, profile_id, freq_cdf)
+    
     def build_freq_vs_capacity_profile(self):
         """For each thread & interval build cdf of freq vs capacity."""
         for t, tdata in enumerate(self.__thread_data):
@@ -460,6 +513,119 @@ class Benchmark(object):
                     running_idx += 1
                 self.set_freq_cdf(t, profile_id, freq_cdf)
 
+    def all_possible_partitions(self):
+        """Create a list of all possible partitions so that each partition
+        has at least 1 way."""
+        to_partition = self.num_ways - self.num_threads
+        leftmost = -1
+        rightmost = to_partition + self.num_threads - 1
+        positions = [x for x in xrange(rightmost)]
+        p_configs = it.combinations(positions, self.num_threads - 1)
+        partitions= [[8,8,8,8], [11,7,7,7], [14,6,6,6], [17,5,5,5],
+                     [20,4,4,4], [23,3,3,3], [26,2,2,2], [29,1,1,1]]
+        partition_labels= ['8-8-8-8', '11-7-7-7', '14-6-6-6', '17-5-5-5',
+                           '20-4-4-4', '23-3-3-3', '26-2-2-2', '29-1-1-1']
+        """partitions= [[8,8,8,8], [9,9,9,5], [10,10,10, 2],
+                     [11,11,5,5], [12,12,4,4], [13,13,3,3],
+                     [14,14,2,2], [15,15,1,1], [11,7,7,7],
+                     [14,6,6,6], [17,5,5,5], [20,4,4,4],
+                     [23,3,3,3], [26,2,2,2], [29,1,1,1]]
+        partition_labels= ['8', '9', '10,2',
+                     '11,5', '12,4', '13,3',
+                     '14,2', '15,1', '11,7',
+                     '14,6', '17,5', '20,4',
+                     '23,3', '26,2,', '29,1,']"""
+        #partitions = []
+        #for config in p_configs:
+            #new_p = []
+            #left = right = leftmost
+            #for x in config:
+                #right = x
+                #new_p.append(right - left) # -1 + 1 cancels
+                #left = right
+            #new_p.append(rightmost - left)
+            #partitions.append(new_p)
+        return partitions, partition_labels
+
+    def plot_partition_v_misses(self, new_style=False, file_suffix=None):
+        """For each interval for each thread as preferred thread, plot the
+        misses for all possible partitions.
+        """
+        partitions, partition_labels = self.all_possible_partitions()
+        subplots = num_profiles = len(self.__thread_data[0].freq_v_cap)
+        #if subplots > 6: subplots = 6
+        print "subplot: ", subplots
+        subplots_per_page = subplots if subplots < 2 else 2
+        if not(file_suffix):
+            suffix = dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
+        else:
+            suffix = file_suffix + '_' + dt.datetime.now().strftime("%y_%m_%d_%H:%M:%S")
+        filename = self.name + "/" + self.name + suffix
+        figure = fig.Figure(filename,
+                            figformat='pdf',
+                            #title="RD Profile for all threads ",
+                            total_subplots=subplots,
+                            subplots_per_page=subplots_per_page,
+                            font_size=6)
+        best_allocations = list()
+        for profile_id in xrange(1, num_profiles + 1):
+            print "profile id: ", profile_id
+            plot_data = list()
+            legend_labels = list()
+            all_keys = set()
+            best_allocations_per_profile = list()
+            for preferred_t in xrange(self.num_threads):
+                sys.stdout.write("Preferred thread: %d\n" % preferred_t)
+                min_misses = 4611686018427387904
+                best_alloc = []
+                x_list = list()
+                y_list = list()
+                x_index = 0
+                for alloc in partitions:
+                    x_list.append(x_index)
+                    x_index += 1
+                    total_misses = 0
+                    index = 0
+                    for x in alloc:
+                        current_t = (preferred_t + index) % self.num_threads
+                        total_misses += self.get_misses(current_t, profile_id, x)
+                        index += 1
+                    y_list.append(total_misses)    
+                    if total_misses < min_misses:
+                        min_misses = total_misses
+                        best_alloc = alloc
+                x_array = np.array(x_list)
+                y_array = np.array(y_list)
+                plot_data.append(x_array)
+                plot_data.append(y_array)
+                plot_id = str(preferred_t)
+                legend_labels.append("Thread " + plot_id)
+                best_allocations_per_profile.append(best_alloc)
+                sys.stdout.write("Best Alloc for Interval %d: %s\n" % 
+                    (profile_id, str(best_alloc)))
+                print 'misses: ', y_array
+            sp = figure.add_plot(new_style,
+                                 legend_labels, 
+                                 'Allocations',
+                                 'Misses',
+                                 ' ',
+                                 #'Profile Id ' + str(profile_id), 
+                                 partition_labels,
+                                 *plot_data)    
+            if profile_id >= subplots:
+                break
+            best_allocations.append(best_allocations_per_profile)
+        figure.save_and_close()
+        return best_allocations
+    
+    def get_misses(self, thread, profile_id, ways):
+        "Return the hits for a particular way"""
+        ret_val = self.__thread_data[thread].freq_v_cap[profile_id][len(self.ways) - 1]
+        if ways > 0:
+            ret_val = ret_val - self.__thread_data[thread].freq_v_cap[
+                profile_id][ways - 1]
+        return ret_val
+     
     def find_best_partition(self,shared_profile=None):
         """For each interval for each thread as preferred thread, find the
         best possible partition. If a shared profile is supplied, use that
@@ -564,7 +730,7 @@ class Benchmark(object):
                         if float(distance) < _MAGIC_MISS_DISTANCE:
                             rd_profile[distance] = frequency
                     self.set_rd_profile(current_thrd, current_interval,
-                                        rd_profile)
+                                        rd_profile, 0)
                 else:
                     pass  # other cases are not relevant
 
